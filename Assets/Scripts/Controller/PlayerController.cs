@@ -29,7 +29,7 @@ public class PlayerController : BaseBehaviour
     public override void Update()
     {
         base.Update();
-        CheckFinishTap(GetNearTapPos());
+        CheckFinishTap(TapPosManager.instance.GetTapPosInList(0));
         CheckFinishDoubleTap();
         ManageFallSpeed();
     }
@@ -74,47 +74,47 @@ public class PlayerController : BaseBehaviour
         else score = 30;
         GameManager.instance.IncreaseScore(score);
     }
-    public GameObject GetNearTapPos()
-    {
-        GameObject[] tapPos = GameObject.FindGameObjectsWithTag("TapPos");
-        List<GameObject> objectsToSort = tapPos.ToList();
-        GameObject nearestObject = objectsToSort.OrderBy(obj =>
-           Vector3.Distance(transform.position, obj.transform.position)).FirstOrDefault();
+    //public GameObject GetNearTapPos()
+    //{
+    //    GameObject[] tapPos = GameObject.FindGameObjectsWithTag("TapPos");
+    //    List<GameObject> objectsToSort = tapPos.ToList();
+    //    GameObject nearestObject = objectsToSort.OrderBy(obj =>
+    //       Vector3.Distance(transform.position, obj.transform.position)).FirstOrDefault();
 
-        if (nearestObject != null)
-        {
-            nearestObject.GetComponent<TapPosController>().SetTapPosWhenNearPlayer();
-            return nearestObject;
-        }
-        return null;
-    }
-    public List<GameObject> GetListDoubleTapPos()
-    {
-        GameObject[] tapPos = GameObject.FindGameObjectsWithTag("TapPos");
-        List<GameObject> doubleTapPos = new();
-        foreach (GameObject _tapPos in tapPos)
-        {
-            if(_tapPos.GetComponent<TapPosController>().isDoubleTap)
-            {
-                doubleTapPos.Add(_tapPos);
-            }
-            if (doubleTapPos.Count >= 2) break;
-        }
-        if(doubleTapPos.Count == 0) return null;
-        float compareDistanceWithPlayer = Mathf.Abs(Vector2.Distance(transform.position, doubleTapPos[0].transform.position) - Vector2.Distance(transform.position, doubleTapPos[1].transform.position));
-        foreach(GameObject _tapPos in doubleTapPos)
-        {
-            if (_tapPos == GetNearTapPos() && compareDistanceWithPlayer < 0.1f)
-            {
-                foreach (GameObject __tapPos in doubleTapPos)
-                {
-                    __tapPos.GetComponent<TapPosController>().SetTapPosWhenNearPlayer();
-                }
-                return doubleTapPos;
-            }
-        }
-        return null;
-    }
+    //    if (nearestObject != null)
+    //    {
+    //        nearestObject.GetComponent<TapPosController>().SetTapPosWhenNearPlayer();
+    //        return nearestObject;
+    //    }
+    //    return null;
+    //}
+    //public List<GameObject> GetListDoubleTapPos()
+    //{
+    //    GameObject[] tapPos = GameObject.FindGameObjectsWithTag("TapPos");
+    //    List<GameObject> doubleTapPos = new();
+    //    foreach (GameObject _tapPos in tapPos)
+    //    {
+    //        if(_tapPos.GetComponent<TapPosController>().isDoubleTap)
+    //        {
+    //            doubleTapPos.Add(_tapPos);
+    //        }
+    //        if (doubleTapPos.Count >= 2) break;
+    //    }
+    //    if(doubleTapPos.Count == 0) return null;
+    //    float compareDistanceWithPlayer = Mathf.Abs(Vector2.Distance(transform.position, doubleTapPos[0].transform.position) - Vector2.Distance(transform.position, doubleTapPos[1].transform.position));
+    //    foreach(GameObject _tapPos in doubleTapPos)
+    //    {
+    //        if (_tapPos == GetNearTapPos() && compareDistanceWithPlayer < 0.1f)
+    //        {
+    //            foreach (GameObject __tapPos in doubleTapPos)
+    //            {
+    //                __tapPos.GetComponent<TapPosController>().SetTapPosWhenNearPlayer();
+    //            }
+    //            return doubleTapPos;
+    //        }
+    //    }
+    //    return null;
+    //}
     public void CheckFinishTap(GameObject tapPos)
     {
         //BarManager.instance.SpawnBar(1);
@@ -139,14 +139,31 @@ public class PlayerController : BaseBehaviour
             FinishTap(Camera.main.ScreenToWorldPoint(touch.position).x > transform.position.x ? 1 : -1, tapPos);
         }
     }
+    private List<GameObject> listDoubleTapPos = new();
     public void CheckFinishDoubleTap()
     {
         if (!isCanDoubleTap) return;
+        listDoubleTapPos.Clear();
         if(Input.GetKeyDown(KeyCode.A)/* && Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.A) && Input.GetKeyDown(KeyCode.S)*/) 
         {
             int side = 1;
-            List<GameObject> listDoubleTapPos = GetListDoubleTapPos();
+            listDoubleTapPos.Add(TapPosManager.instance.GetTapPosInList(0));
+            listDoubleTapPos.Add(TapPosManager.instance.GetTapPosInList(1));
             for(int i = 0; i < listDoubleTapPos.Count; i++)
+            {
+                Debug.Log(listDoubleTap.Count);
+                FinishTap(side, listDoubleTapPos[i]);
+                side *= -1;
+            }
+        }
+        if (Input.touchCount == 0) return;
+        Touch touch = Input.GetTouch(0);
+        if (touch.phase == TouchPhase.Began)
+        {
+            int side = 1;
+            listDoubleTapPos.Add(TapPosManager.instance.GetTapPosInList(0));
+            listDoubleTapPos.Add(TapPosManager.instance.GetTapPosInList(1));
+            for (int i = 0; i < listDoubleTapPos.Count; i++)
             {
                 Debug.Log(listDoubleTap.Count);
                 FinishTap(side, listDoubleTapPos[i]);
@@ -157,6 +174,7 @@ public class PlayerController : BaseBehaviour
     private void FinishTap(int barSide, GameObject tapPos)
     {
         Destroy(tapPos);
+        TapPosManager.instance.GetListTapPos().Remove(tapPos);
         //AudioManager.instance.PlayKeySound();
         IncreseScore(tapPos);
         isCanDoubleTap = false;
@@ -167,7 +185,7 @@ public class PlayerController : BaseBehaviour
     {
         if (collision.gameObject.CompareTag("TapPos"))
         {
-            if (collision.gameObject == GetNearTapPos())
+            if (collision.gameObject == TapPosManager.instance.GetTapPosInList(0))
             {
                 if (collision.gameObject.GetComponent<TapPosController>().isDoubleTap) isCanDoubleTap = true;
                 else isCanTap = true;

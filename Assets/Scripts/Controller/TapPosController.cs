@@ -8,9 +8,7 @@ using UnityEngine.XR;
 
 public class TapPosController : BaseBehaviour
 {
-    public static TapPosController instance;
     private Vector3 startPos;
-    private Vector3 endPos;
     private Vector3 playerPos;
     private float countDown;
     [SerializeField] private float totalTime;
@@ -26,7 +24,6 @@ public class TapPosController : BaseBehaviour
     public bool isDoubleTap;
     public override void Awake()
     {
-        instance = this;
         base.Awake();
     }
     public override void Start()
@@ -36,6 +33,7 @@ public class TapPosController : BaseBehaviour
     public override void Update()
     {
         base.Update();
+        CheckTapPosNearPlayer();
         ManageLine();
     }
     private void FixedUpdate()
@@ -44,44 +42,24 @@ public class TapPosController : BaseBehaviour
     }
     public void Moving()
     {
-        playerPos = PlayerController.instance.transform.position;
-        
-        startPos += (Vector3)PlayerController.instance.GetRigid().velocity * Time.fixedDeltaTime;
-        endPos += (Vector3)PlayerController.instance.GetRigid().velocity * Time.fixedDeltaTime;
-
-        countDown += Time.fixedDeltaTime * speed;   
+        countDown += Time.fixedDeltaTime * speed;
         float t = countDown / totalTime;
-        if (t < 1)
-        {
-            Vector3 centerPosition = Vector3.Lerp(startPos, playerPos, 0.5f);
-            centerPosition -= new Vector3(0, -sizeAngle, 0);
-            currentPos = Vector3.Slerp(startPos - centerPosition, playerPos - centerPosition, t) + centerPosition;
-            endTapPos.transform.position = Vector3.Slerp(startPos - centerPosition, playerPos - centerPosition, 0.93f) + centerPosition;
-        }
-        else
-        {
-            Vector3 centerPosition = Vector3.Lerp(endPos, playerPos, 0.5f);
-            centerPosition -= new Vector3(0, sizeAngle, 0);
-            currentPos = Vector3.Slerp(playerPos - centerPosition , endPos - centerPosition, t-1) + centerPosition;
-        }
+        playerPos = PlayerController.instance.transform.position;
+        currentPos = Vector3.Lerp(startPos, playerPos, t);
         if (t > 1.2f) SceneManager.LoadScene(0);
         transform.position = currentPos;
     }
-    public void SetDoubleTapPos(int side, Color32 color)
+    public void SetDoubleTapPos(Vector2 spawnPos)
     {
         isDoubleTap = true;
         SpriteRenderer rd = GetComponent<SpriteRenderer>();
-        rd.color = color;
-        SetTapPos(side);
+        rd.color = new Color32(0, 255, 0, 255);
+        SetTapPos(spawnPos);
     }
-    public void SetTapPos(int side)
+    public void SetTapPos(Vector2 spawnPos)
     {
-        playerPos = PlayerController.instance.transform.position;
-        Vector3 newStartPos = new(playerPos.x + (8 * (side == 0 ? -1 : 1)), playerPos.y, 0);
-        Vector3 newEndPos = new(playerPos.x + (8 * (side == 0 ? 1 : -1)), playerPos.y, 0);
-        transform.position = newStartPos;
-        startPos = newStartPos;
-        endPos = newEndPos;
+        transform.position = spawnPos;
+        startPos = spawnPos;
         countDown = 0;
     }
     public void SetIsDoubleTap(bool isDoubleTap)
@@ -92,18 +70,28 @@ public class TapPosController : BaseBehaviour
     {
         return isDoubleTap;
     }
-    public void SetTapPosWhenNearPlayer()
+    public void CheckTapPosNearPlayer()
     {
-        endTapPos.SetActive(true);
-        CreateLine();
-        isNearPlayer = true;
+        if (isNearPlayer) return;
+        if (isDoubleTap && (gameObject == TapPosManager.instance.GetTapPosInList(0) || gameObject == TapPosManager.instance.GetTapPosInList(1)))
+        {
+            if (gameObject == TapPosManager.instance.GetTapPosInList(0) && !TapPosManager.instance.GetTapPosInList(1).GetComponent<TapPosController>().isDoubleTap) return;
+            if (gameObject == TapPosManager.instance.GetTapPosInList(1) && !TapPosManager.instance.GetTapPosInList(0).GetComponent<TapPosController>().isDoubleTap) return;
+            CreateLine();
+            isNearPlayer = true;
+        }
+        else if (TapPosManager.instance.GetTapPosInList(0) == gameObject)
+        {
+            CreateLine();
+            isNearPlayer = true;
+        }
     }
     public void CreateLine()
     {
-        for(int i = 0; i < 10; i++)
+        for (int i = 0; i < 10; i++)
         {
             if (lineArray[i] == null)
-            lineArray[i] = Instantiate(linePref);
+                lineArray[i] = Instantiate(linePref);
             lineArray[i].transform.SetParent(transform, false);
         }
     }
@@ -113,15 +101,8 @@ public class TapPosController : BaseBehaviour
         if (!isNearPlayer) return;
         for (int i = 0; i < lineArray.Length; i++)
         {
-            lineArray[i].SetActive(true);
-            Vector3 centerPosition = Vector3.Lerp(transform.position, playerPos, 0.5f);      
-            centerPosition -= new Vector3(0, -sizeAngle, 0);
-            lineArray[i].transform.position = Vector3.Slerp(transform.position - centerPosition, playerPos - centerPosition, linePoint) + centerPosition;
+            lineArray[i].transform.position = Vector3.Lerp(transform.position, playerPos, linePoint);
             linePoint += 1f / (lineArray.Length - 1);  // Corrected calculation
         }
-    }
-    public void SetSizeAngle(float sizeAngle)
-    {
-        this.sizeAngle = sizeAngle;
     }
 }

@@ -14,7 +14,7 @@ public class PlayerColorController : BaseBehaviour
     private void FixedUpdate()
     {
         if (GameManager.instance.GetGameStage() != GameManager.GameStage.PLaying) return;
-        ManageLight();
+        //ManageLight();
     }
     public override void GetComponent()
     {
